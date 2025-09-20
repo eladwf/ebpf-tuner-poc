@@ -1,0 +1,6 @@
+use serde::Serialize;
+#[derive(Default, Clone)] pub struct Series { pub vals: Vec<f64> }
+impl Series { pub fn push(&mut self, v: f64) { self.vals.push(v); } fn q(&self, t: f64) -> f64 { if self.vals.is_empty() { return 0.0; } let mut v = self.vals.clone(); v.sort_by(|a,b| a.partial_cmp(b).unwrap()); let idx = ((v.len() as f64 - 1.0) * t).round() as usize; v[idx] } fn mean(&self) -> f64 { if self.vals.is_empty() { 0.0 } else { self.vals.iter().sum::<f64>() / self.vals.len() as f64 } } }
+#[derive(Serialize)] pub struct MetricSummary { pub mean: f64, pub p50: f64, pub p90: f64, pub p95: f64, pub p99: f64 }
+#[derive(Serialize)] pub struct Summary { pub label: String, pub runq_us: MetricSummary, pub futex_us: MetricSummary, pub faults_last: u64, pub samples: usize }
+impl Summary { pub fn from_series(label: &str, runq: &Series, futex: &Series, faults: &Series) -> Self { let ms = |s: &Series| MetricSummary { mean: s.mean(), p50: s.q(0.50), p90: s.q(0.90), p95: s.q(0.95), p99: s.q(0.99) }; Self { label: label.into(), runq_us: ms(runq), futex_us: ms(futex), faults_last: faults.vals.last().copied().unwrap_or(0.0) as u64, samples: runq.vals.len().max(futex.vals.len()).max(faults.vals.len()) } } }
